@@ -1,0 +1,1 @@
+sc stop EQS-training-sample-app
