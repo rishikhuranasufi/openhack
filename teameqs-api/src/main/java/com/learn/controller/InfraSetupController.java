@@ -32,6 +32,9 @@ public class InfraSetupController {
     public static final String HTTPS_HOOKS_SLACK_COM = "https://hooks.slack.com/";
     public static final String HOME_EC_2_USER_OPENHACK_LAMBDA = "/home/ec2-user/openhack/lambda";
     public static final String LAMBDA_TERRAFORM_SH = "/lambdaTerraform.sh";
+    public static final String USER_HOME = "/home/ec2-user/";
+    public static final String NOTIFICATION = "notification";
+    public static final String CODEPIPELINE = "codepipeline";
     @Autowired
     private UserRepository repository;
     @Autowired
@@ -60,7 +63,32 @@ public class InfraSetupController {
                 " -var app_name="+appName+"" +
                 " -var env="+environment+"";
 
-        String cmdSecondResponse =executeCommand(cmdToExecute,"/home/ec2-user/openhack");
+        //Copy both directories to Openhack with reponame and env
+        String directoryCreationCOmmand = "mkdir -p /home/ec2-user/openhack/"+repoName+"_"+environment;
+        String directCreatedSuccessfully = executeCommand(directoryCreationCOmmand,USER_HOME);
+        if (directCreatedSuccessfully.equals(FAIL))
+            return new ResponseEntity<ApiResponse>(new ApiResponse(false, "ISSUE while creating directory "
+                    +directoryCreationCOmmand),
+                    HttpStatus.NOT_IMPLEMENTED);
+
+        String cmdToCopyLambdaTerraformfiles = "cp -R /home/ec2-user/.openhack/* /home/ec2-user/openhack/"+repoName+"_"+environment;
+
+        String directryCopyLambda = executeCommand(cmdToCopyLambdaTerraformfiles,USER_HOME);
+        if (directryCopyLambda.equals(FAIL))
+            return new ResponseEntity<ApiResponse>(new ApiResponse(false, "ISSUE while creating directory "
+                    +cmdToCopyLambdaTerraformfiles),
+                    HttpStatus.NOT_IMPLEMENTED);
+
+        String initializeTerraform = "terraform init";
+        String resultOfInit = executeCommand(initializeTerraform,"/home/ec2-user/openhack/"+repoName+"_"+environment+"/"+ CODEPIPELINE);
+        if (resultOfInit.equals(FAIL))
+            return new ResponseEntity<ApiResponse>(new ApiResponse(false, "ISSUE while Initializing Terraform "
+                    +initializeTerraform),
+                    HttpStatus.NOT_IMPLEMENTED);
+
+
+
+        String cmdSecondResponse =executeCommand(cmdToExecute,"/home/ec2-user/openhack/"+repoName+"_"+environment+"/"+ CODEPIPELINE);
 
         if (cmdSecondResponse.equals(FAIL))
             return new ResponseEntity<ApiResponse>(new ApiResponse(false, "ISSUE while executing command "
@@ -72,16 +100,17 @@ public class InfraSetupController {
     }
 
 
-    @RequestMapping(value = "/v1/configureNotification/{accessKey}/{secretKey}/{slackHook}/{message}/{slackUserName}/{slackChannel}/{repoName}", method = RequestMethod.GET)
+    @RequestMapping(value = "/v1/configureNotification/{accessKey}/{secretKey}/{slackHook}/{message}/{slackUserName}/{slackChannel}/{repoName}/{env}", method = RequestMethod.GET)
     public ResponseEntity<?> configureNotification(@PathVariable @ApiParam(value="AWS access key" ,required = true) String accessKey,
                                                    @PathVariable @ApiParam(value="AWS Secret key" ,required = true) String secretKey,
                                                    @PathVariable @ApiParam(value="Slack hook details" ,required = true) String slackHook,
                                                    @PathVariable @ApiParam(value="PIPELINE_NAME has STATE, message" ,required = true) String message,
                                                    @PathVariable @ApiParam(value="User name via notification will be send" ,required = true) String slackUserName,
                                                    @PathVariable @ApiParam(value="Slack channel in which notification will be send" ,required = true) String slackChannel,
+                                                   @PathVariable @ApiParam(value="Environment for which notification needs to send" ,required = true) String env,
                                                    @PathVariable @ApiParam(value="AWS Code Commit repo name" ,required = true) String repoName) {
 
-        String slackWebURL = HTTPS_HOOKS_SLACK_COM + "services/TP7GK0LLT/BPK1ALJ93/mmXDzYh9pLUiAdkh1bR5e1SU";
+        String slackWebURL = HTTPS_HOOKS_SLACK_COM + "services/TP7GK0LLT/BPK1ALJ93/"+slackHook;
         log.info("Slack Web Service details "+slackHook);
         log.info("Slack Web URL "+slackWebURL);
         log.info("Notification message "+message);
@@ -96,9 +125,35 @@ public class InfraSetupController {
                 messageParameter+
                 " -var slack_username="+slackUserName+"" +
                 " -var slack_channel="+slackChannel+"" +
-                " -var repo_name="+repoName+"";
+                " -var repo_name="+repoName+"" +
+                " -var env="+env+"";
 
-        String cmdSecondResponse =executeCommand(cmdToExecute, HOME_EC_2_USER_OPENHACK_LAMBDA);
+        //Copy both directories to Openhack with reponame and env
+        String directoryCreationCOmmand = "mkdir -p /home/ec2-user/openhack/"+repoName+"_"+env;
+        String directCreatedSuccessfully = executeCommand(directoryCreationCOmmand,USER_HOME);
+        if (directCreatedSuccessfully.equals(FAIL))
+            return new ResponseEntity<ApiResponse>(new ApiResponse(false, "ISSUE while creating directory "
+                    +directoryCreationCOmmand),
+                    HttpStatus.NOT_IMPLEMENTED);
+
+        String cmdToCopyLambdaTerraformfiles = "cp -R /home/ec2-user/.openhack/* /home/ec2-user/openhack/"+repoName+"_"+env;
+
+        String directryCopyLambda = executeCommand(cmdToCopyLambdaTerraformfiles,USER_HOME);
+        if (directryCopyLambda.equals(FAIL))
+            return new ResponseEntity<ApiResponse>(new ApiResponse(false, "ISSUE while creating directory "
+                    +cmdToCopyLambdaTerraformfiles),
+                    HttpStatus.NOT_IMPLEMENTED);
+
+        String initializeTerraform = "terraform init";
+        String resultOfInit = executeCommand(initializeTerraform,"/home/ec2-user/openhack/"+repoName+"_"+env+"/"+NOTIFICATION);
+        if (resultOfInit.equals(FAIL))
+            return new ResponseEntity<ApiResponse>(new ApiResponse(false, "ISSUE while Initializing Terraform "
+                    +initializeTerraform),
+                    HttpStatus.NOT_IMPLEMENTED);
+
+
+
+        String cmdSecondResponse =executeCommand(cmdToExecute, "/home/ec2-user/openhack/"+repoName+"_"+env+"/"+NOTIFICATION);
 
         if (cmdSecondResponse.equals(FAIL))
             return new ResponseEntity<ApiResponse>(new ApiResponse(false, "ISSUE while executing command "
@@ -134,12 +189,12 @@ public class InfraSetupController {
 
             //Run a bat file
             Process process;
-            if(commandToBeExecutedFrom.equals(HOME_EC_2_USER_OPENHACK_LAMBDA)) {
-                createFile(cmdToExecute);
-                String[] cmd = { "sh", HOME_EC_2_USER_OPENHACK_LAMBDA+LAMBDA_TERRAFORM_SH};
+            if(commandToBeExecutedFrom.contains(NOTIFICATION)) {
+                createFile(cmdToExecute,commandToBeExecutedFrom);
+                String[] cmd = { "sh", commandToBeExecutedFrom+LAMBDA_TERRAFORM_SH};
                 process = Runtime.getRuntime().exec(cmd,null, new File(commandToBeExecutedFrom));
             }else
-                process = Runtime.getRuntime().exec(cmdToExecute, null, new File(commandToBeExecutedFrom));
+                process = Runtime.getRuntime().exec(new String[] { "sh", "-c", cmdToExecute }, null, new File(commandToBeExecutedFrom));
 
             StringBuilder output = new StringBuilder();
 
@@ -184,10 +239,10 @@ public class InfraSetupController {
         }
     }
 
-    private void createFile(String content){
+    private void createFile(String content, String commandToBeExecutedFrom){
 
         try{
-            File file = new File(HOME_EC_2_USER_OPENHACK_LAMBDA+ LAMBDA_TERRAFORM_SH);
+            File file = new File(commandToBeExecutedFrom+LAMBDA_TERRAFORM_SH);
 
             //Create the file
             if (file.createNewFile())

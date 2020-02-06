@@ -11,6 +11,10 @@ variable "repo_name" {
 	#default = "openhack"
 }
 
+variable "env" {
+	type = string	
+}
+
 variable "function_name" {
   default = "minimal_lambda_function"
 }

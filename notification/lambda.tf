@@ -5,13 +5,13 @@ provider "aws" {
 }
 
 resource "aws_cloudwatch_event_rule" "pipeline" {
-  name        = "code-pipeline-failures"
+  name        = "code-pipeline-failures_${var.env}"
   description = "CloudWatch Events rule to automatically update"
   event_pattern = <<PATTERN
 {
   "detail": {
     "pipeline": [
-      "dev-${var.repo_name}-code-pipeline"
+      "${var.env}-${var.repo_name}-code-pipeline"
     ],
     "state": [
       "FAILED",
@@ -42,7 +42,7 @@ resource "aws_cloudwatch_event_target" "sns" {
 }
 
 resource "aws_sns_topic" "pipeline_failure_event" {
-  name = "pipeline_failure_event"
+  name = "pipeline_failure_event_${var.env}"
 }
 
 resource "aws_sns_topic_policy" "default" {
@@ -73,7 +73,7 @@ resource "aws_lambda_function" "lambda_function" {
   handler          = "${var.handler}"
   runtime          = "${var.runtime}"
   filename         = "lambda.zip"
-  function_name    = "${var.function_name}"
+  function_name    = "${var.function_name}_${var.env}"
   #source_code_hash = "${filesha256(file("lambda.zip"))}"
   
   environment {
@@ -86,7 +86,7 @@ resource "aws_lambda_function" "lambda_function" {
 }
 
 resource "aws_iam_role" "lambda_exec_role" {
-  name        = "lambda_exec"
+  name        = "lambda_exec_${var.env}"
   path        = "/"
   description = "Allows Lambda Function to call AWS services on your behalf."
   
@@ -109,7 +109,7 @@ EOF
 
 
 resource "aws_iam_policy" "lambda_logging" {
-  name = "lambda_logging"
+  name = "lambda_logging_${var.env}"
   path = "/"
   description = "IAM policy for logging from a lambda"
 
